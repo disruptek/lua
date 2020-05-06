@@ -38,81 +38,111 @@
 when defined(useLuajit):
   when defined(MACOSX):
     const
-      NAME* = "libluajit.dylib"
-      LIB_NAME* = "libluajit.dylib"
+      Name* = "libluajit.dylib"
+      LibName* = "libluajit.dylib"
   elif defined(UNIX):
     const
-      NAME* = "libluajit.so(|.0)"
-      LIB_NAME* = "libluajit.so(|.0)"
+      Name* = "libluajit.so(|.0)"
+      LibName* = "libluajit.so(|.0)"
   else:
     const
-      NAME* = "luajit.dll"
-      LIB_NAME* = "luajit.dll"
+      Name* = "luajit.dll"
+      LibName* = "luajit.dll"
 else:
   when defined(MACOSX):
     const
-      NAME* = "liblua(|5.1|5.0).dylib"
-      LIB_NAME* = "liblua(|5.1|5.0).dylib"
+      Name* = "liblua(|5.1|5.0).dylib"
+      LibName* = "liblua(|5.1|5.0).dylib"
   elif defined(UNIX):
     const
-      NAME* = "liblua(|5.1|5.0).so(|.0)"
-      LIB_NAME* = "liblua(|5.1|5.0).so(|.0)"
+      Name* = "liblua(|5.1|5.0).so(|.0)"
+      LibName* = "liblua(|5.1|5.0).so(|.0)"
   else:
-    const 
-      NAME* = "lua(|5.1|5.0).dll"
-      LIB_NAME* = "lua(|5.1|5.0).dll"
+    const
+      Name* = "lua(|5.1|5.0).dll"
+      LibName* = "lua(|5.1|5.0).dll"
 
-const 
-  VERSION* = "Lua 5.1"
-  RELEASE* = "Lua 5.1.1"
-  VERSION_NUM* = 501
-  COPYRIGHT* = "Copyright (C) 1994-2006 Lua.org, PUC-Rio"
-  AUTHORS* = "R. Ierusalimschy, L. H. de Figueiredo & W. Celes"
-  # option for multiple returns in `lua_pcall' and `lua_call' 
-  MULTRET* = - 1              #
-                              #** pseudo-indices
-                              #
-  REGISTRYINDEX* = - 10000
-  ENVIRONINDEX* = - 10001
-  GLOBALSINDEX* = - 10002
+const
+  CoLibName* = "coroutine"
+  TabLibName* = "table"
+  IoLibName* = "io"
+  OsLibName* = "os"
+  StrLibName* = "string"
+  MathLibName* = "math"
+  DbLibName* = "debug"
+  LoadLibName* = "package"
 
-proc upvalueindex*(i: cint): cint
-const                         # thread status; 0 is OK 
-  constYIELD* = 1
-  ERRRUN* = 2
-  ERRSYNTAX* = 3
-  ERRMEM* = 4
-  ERRERR* = 5
+  Version* = "Lua 5.1"
+  Release* = "Lua 5.1.1"
+  VersionNum* = 501
+  Copyright* = "Copyright (C) 1994-2006 Lua.org, PUC-Rio"
+  Authors* = "R. Ierusalimschy, L. H. de Figueiredo & W. Celes"
+  # option for multiple returns in `lua_pcall' and `lua_call'
+  MultRet* = -1
 
-type 
+  # pseudo-indices
+  RegistryIndex* = -10000
+  EnvironIndex* = -10001
+  GlobalsIndex* = -10002
+
+  NoRef* = -2
+  RefNil* = -1
+
+  minStack* = 20 # minimum Lua stack available to a C function
+
+  # note: this is just arbitrary, as it related to the BUFSIZ defined in
+  # stdio.h ...
+  BufferSize* = 4096
+
+type
+  Chunkreader* = Reader
+  Chunkwriter* = Writer
+  Buffer*{.final.} = object
+    p*: cstring               # current position in buffer
+    lvl*: cint                # number of strings in the stack (level)
+    L*: PState
+    buffer*: array[BufferSize, char] # see note above about BufferSize
+
+  PBuffer* = ptr Buffer
+
   PState* = pointer
   CFunction* = proc (state: PState): cint{.cdecl.}
 
-#
-#** functions that read/write blocks when loading/dumping Lua chunks
-#
+  #
+  #** functions that read/write blocks when loading/dumping Lua chunks
+  #
 
-type 
   Reader* = proc (L: PState, ud: pointer, sz: ptr cint): cstring{.cdecl.}
   Writer* = proc (L: PState, p: pointer, sz: cint, ud: pointer): cint{.cdecl.}
   Alloc* = proc (ud, theptr: pointer, osize, nsize: cint){.cdecl.}
 
-const 
-  TNONE* = - 1
-  TNIL* = 0
-  TBOOLEAN* = 1
-  TLIGHTUSERDATA* = 2
-  TNUMBER* = 3
-  TSTRING* = 4
-  TTABLE* = 5
-  TFUNCTION* = 6
-  TUSERDATA* = 7
-  TTHREAD* = 8                # minimum Lua stack available to a C function 
-  MINSTACK* = 20
+  ThreadStatus* {.size: sizeof(cint).} = enum
+    ThreadOk   = (0, "ok")
+    constYield = (1, "yield")
+    ErrRun     = (2, "run error")
+    ErrSyntax  = (3, "syntax error")
+    ErrMem     = (4, "memory error")
+    ErrErr     = (5, "error")
 
-type                          # Type of Numbers in Lua 
   Number* = float
   Integer* = cint
+
+  LuaType* {.size: sizeof(cint).} = enum
+    TInvalid       = (0, "invalid")
+    TNone          = (1, "none")
+    TNil           = (2, "nil")
+    TBoolean       = (3, "bool")
+    TLightUserData = (4, "light user data")
+    TNumber        = (5, "number")
+    TString        = (6, "string")
+    TTable         = (7, "table")
+    TFunction      = (8, "function")
+    TUserData      = (9, "user data")
+    TThread        = (10, "thread")
+
+const
+  LuaTypesBegin = 1
+  LuaTypeOffset = 1
 
 {.pragma: ilua, importc: "lua_$1".}
 
@@ -134,7 +164,7 @@ proc replace*(state: PState, idx: cint){.ilua.}
 proc checkstack*(state: PState, sz: cint): cint{.ilua.}
 proc xmove*(`from`, `to`: PState, n: cint){.ilua.}
 proc isnumber*(state: PState, idx: cint): cint{.ilua.}
-proc isstring*(state: PState, idx: cint): cint{.ilua.}
+#proc isstring*(state: PState, idx: cint): cint{.ilua.}
 proc iscfunction*(state: PState, idx: cint): cint{.ilua.}
 proc isuserdata*(state: PState, idx: cint): cint{.ilua.}
 proc luatype*(state: PState, idx: cint): cint{.importc: "lua_type".}
@@ -196,15 +226,15 @@ proc setallocf*(state: PState, f: Alloc, ud: pointer){.ilua.}
 #** Garbage-collection functions and options
 #
 
-const 
-  GCSTOP* = 0
-  GCRESTART* = 1
-  GCCOLLECT* = 2
-  GCCOUNT* = 3
-  GCCOUNTB* = 4
-  GCSTEP* = 5
-  GCSETPAUSE* = 6
-  GCSETSTEPMUL* = 7
+const
+  GcStop* = 0
+  GcRestart* = 1
+  GcCollect* = 2
+  GcCount* = 3
+  GcCountB* = 4
+  GcStep* = 5
+  GcSetPause* = 6
+  GcSetStepMul* = 7
 
 #
 #** ===============================================================
@@ -212,12 +242,13 @@ const
 #** ===============================================================
 #
 
-proc pop*(state: PState, n: cint)
+proc pop*(state: PState, n: cint = cint 1)
 proc newtable*(state: Pstate)
 proc register*(state: PState, n: cstring, f: CFunction)
 proc pushcfunction*(state: PState, f: CFunction)
 proc strlen*(state: Pstate, i: cint): cint
 proc isfunction*(state: PState, n: cint): bool
+proc isstring*(state: PState, n: cint): bool
 proc istable*(state: PState, n: cint): bool
 proc islightuserdata*(state: PState, n: cint): bool
 proc isnil*(state: PState, n: cint): bool
@@ -235,9 +266,6 @@ proc tostring*(state: PState, i: cint): cstring
 
 proc getregistry*(state: PState)
 proc getgccount*(state: PState): cint
-type 
-  Chunkreader* = Reader
-  Chunkwriter* = Writer
 
 #
 #** ======================================================================
@@ -245,37 +273,35 @@ type
 #** ======================================================================
 #
 
-const 
-  HOOKCALL* = 0
-  HOOKRET* = 1
-  HOOKLINE* = 2
-  HOOKCOUNT* = 3
-  HOOKTAILRET* = 4
+const
+  HookCall* = 0
+  HookRet* = 1
+  HookLine* = 2
+  HookCount* = 3
+  HookTailRet* = 4
 
-const 
-  MASKCALL* = 1 shl ord(HOOKCALL)
-  MASKRET* = 1 shl ord(HOOKRET)
-  MASKLINE* = 1 shl ord(HOOKLINE)
-  MASKCOUNT* = 1 shl ord(HOOKCOUNT)
+  MaskCall* = 1 shl ord(HookCall)
+  MaskRet* = 1 shl ord(HookRet)
+  MaskLine* = 1 shl ord(HookLine)
+  MaskCount* = 1 shl ord(HookCount)
 
-const 
-  IDSIZE* = 60
+  IdSize* = 60
 
-type 
-  TDebug*{.final.} = object    # activation record 
+type
+  TDebug*{.final.} = object         # activation record
     event*: cint
-    name*: cstring            # (n) 
-    namewhat*: cstring        # (n) `global', `local', `field', `method' 
-    what*: cstring            # (S) `Lua', `C', `main', `tail'
-    source*: cstring          # (S) 
-    currentline*: cint         # (l) 
-    nups*: cint                # (u) number of upvalues 
-    linedefined*: cint         # (S) 
-    lastlinedefined*: cint     # (S) 
-    short_src*: array[IDSIZE, char] # (S) \ 
-                               # private part 
-    i_ci*: cint                # active function 
-  
+    name*: cstring                  # (n)
+    namewhat*: cstring              # (n) `global', `local', `field', `method'
+    what*: cstring                  # (S) `Lua', `C', `main', `tail'
+    source*: cstring                # (S)
+    currentline*: cint              # (l)
+    nups*: cint                     # (u) number of upvalues
+    linedefined*: cint              # (S)
+    lastlinedefined*: cint          # (S)
+    short_src*: array[IdSize, char] # (S) \
+                                    # private part
+    i_ci*: cint                     # active function
+
   PDebug* = ptr TDebug
   Hook* = proc (state: PState, ar: PDebug){.cdecl.}
 
@@ -285,83 +311,92 @@ type
 #** ======================================================================
 #
 
-{.push callConv: cdecl, dynlib: lua.LIB_NAME.}
+{.push callConv: cdecl, dynlib: lua.LibName.}
 
-proc getstack*(state: PState, level: cint, ar: PDebug): cint{.ilua.}
-proc getinfo*(state: PState, what: cstring, ar: PDebug): cint{.ilua.}
-proc getlocal*(state: PState, ar: PDebug, n: cint): cstring{.ilua.}
-proc setlocal*(state: PState, ar: PDebug, n: cint): cstring{.ilua.}
-proc getupvalue*(state: PState, funcindex: cint, n: cint): cstring{.ilua.}
-proc setupvalue*(state: PState, funcindex: cint, n: cint): cstring{.ilua.}
-proc sethook*(state: PState, funca: Hook, mask: cint, count: cint): cint{.ilua.}
-proc gethook*(state: PState): Hook{.ilua.}
-proc gethookmask*(state: PState): cint{.ilua.}
-proc gethookcount*(state: PState): cint{.ilua.}
+proc getStack*(state: PState, level: cint, ar: PDebug): cint{.ilua.}
+proc getInfo*(state: PState, what: cstring, ar: PDebug): cint{.ilua.}
+proc getLocal*(state: PState, ar: PDebug, n: cint): cstring{.ilua.}
+proc setLocal*(state: PState, ar: PDebug, n: cint): cstring{.ilua.}
+proc getUpValue*(state: PState, funcindex: cint, n: cint): cstring{.ilua.}
+proc setUpValue*(state: PState, funcindex: cint, n: cint): cstring{.ilua.}
+proc setHook*(state: PState, funca: Hook, mask: cint, count: cint): cint{.ilua.}
+proc getHook*(state: PState): Hook{.ilua.}
+proc getHookMask*(state: PState): cint{.ilua.}
+proc getHookCount*(state: PState): cint{.ilua.}
 
 {.pop.}
 
 # implementation
 
-proc upvalueindex(i: cint): cint = 
-  result = GLOBALSINDEX - i
+proc upValueIndex(i: cint): cint =
+  result = GlobalsIndex - i
 
-proc pop(state: PState, n: cint) = 
+proc pop(state: PState, n: cint) =
   settop(state, - n - 1)
 
-proc newtable(state: PState) = 
+proc newtable(state: PState) =
   createtable(state, 0, 0)
 
-proc register(state: PState, n: cstring, f: CFunction) = 
+proc register(state: PState, n: cstring, f: CFunction) =
   pushcfunction(state, f)
   setglobal(state, n)
 
-proc pushcfunction(state: PState, f: CFunction) = 
+proc pushcfunction(state: PState, f: CFunction) =
   pushcclosure(state, f, 0)
 
-proc strlen(state: PState, i: cint): cint = 
+proc strlen(state: PState, i: cint): cint =
   result = objlen(state, i)
 
-proc isfunction(state: PState, n: cint): bool = 
-  result = luatype(state, n) == TFUNCTION
+converter toLuaType*(c: cint): LuaType =
+  LuaType(c + LuaTypeOffset + LuaTypesBegin)
 
-proc istable(state: PState, n: cint): bool = 
-  result = luatype(state, n) == TTABLE
+proc isstring(state: PState, n: cint): bool =
+  result = luatype(state, n) == TString
 
-proc islightuserdata(state: PState, n: cint): bool = 
-  result = luatype(state, n) == TLIGHTUSERDATA
+proc isfunction(state: PState, n: cint): bool =
+  result = luatype(state, n) == TFunction
 
-proc isnil(state: PState, n: cint): bool = 
-  result = luatype(state, n) == TNIL
+proc istable(state: PState, n: cint): bool =
+  result = luatype(state, n) == TTable
 
-proc isboolean(state: PState, n: cint): bool = 
-  result = luatype(state, n) == TBOOLEAN
+proc islightuserdata(state: PState, n: cint): bool =
+  result = luatype(state, n) == TLightUserData
 
-proc isthread(state: PState, n: cint): bool = 
-  result = luatype(state, n) == TTHREAD
+proc isnil(state: PState, n: cint): bool =
+  result = luatype(state, n) == TNil
 
-proc isnone(state: PState, n: cint): bool = 
-  result = luatype(state, n) == TNONE
+proc isboolean(state: PState, n: cint): bool =
+  result = luatype(state, n) == TBoolean
 
-proc isnoneornil(state: PState, n: cint): bool = 
-  result = luatype(state, n) <= 0
+proc isthread(state: PState, n: cint): bool =
+  result = luatype(state, n) == TThread
 
-proc pushliteral(state: PState, s: cstring) = 
-  pushlstring(state, s, s.len.cint)
+proc isnone(state: PState, n: cint): bool =
+  result = luatype(state, n) == TNone
 
-proc setglobal(state: PState, s: cstring) = 
-  setfield(state, GLOBALSINDEX, s)
+proc isnoneornil(state: PState, n: cint): bool =
+  result = luatype(state, n) in {TNil, TNone}
 
-proc getglobal(state: PState, s: cstring) = 
-  getfield(state, GLOBALSINDEX, s)
+proc pushliteral(state: PState, s: cstring) =
+  pushLString(state, s, s.len.cint)
 
-proc tostring(state: PState, i: cint): cstring = 
-  result = tolstring(state, i, nil)
+proc setGlobal(state: PState, s: cstring) =
+  setField(state, GlobalsIndex, s)
 
-proc getregistry(state: PState) = 
-  pushvalue(state, REGISTRYINDEX)
+proc getGlobal*(state: PState, s: cstring) =
+  getField(state, GlobalsIndex, s)
 
-proc getgccount(state: PState): cint = 
-  result = gc(state, GCCOUNT, 0)
+proc getEnviron*(state: PState, s: cstring) =
+  getField(state, EnvironIndex, s)
+
+proc toString*(state: PState, i: cint): cstring =
+  result = toLString(state, i, nil)
+
+proc getRegistry*(state: PState) =
+  pushValue(state, RegistryIndex)
+
+proc getGcCount*(state: PState): cint =
+  result = gc(state, GcCount, 0)
 
 
 ## -- lualib
@@ -385,20 +420,9 @@ proc getgccount(state: PState): cint =
 #**    - thomas.lavergne@laposte.net
 #**   In french or in english
 #
-
-const 
-  COLIBNAME* = "coroutine"
-  TABLIBNAME* = "table"
-  IOLIBNAME* = "io"
-  OSLIBNAME* = "os"
-  STRLINAME* = "string"
-  MATHLIBNAME* = "math"
-  DBLIBNAME* = "debug"
-  LOADLIBNAME* = "package"
-
 {.pragma: ilualib, importc: "lua$1".}
 
-{.push callConv: cdecl, dynlib: lua.LIB_NAME.}
+{.push callConv: cdecl, dynlib: lua.LibName.}
 proc open_base*(state: PState): cint{.ilualib.}
 proc open_table*(state: PState): cint{.ilualib.}
 proc open_io*(state: PState): cint{.ilualib.}
@@ -409,25 +433,23 @@ proc open_package*(state: PState): cint{.ilualib.}
 proc openlibs*(state: PState){.importc: "luaL_openlibs".}
 {.pop.}
 
-proc baselibopen*(state: PState): bool = 
+proc baselibopen*(state: PState): bool =
   open_base(state) != 0'i32
 
-proc tablibopen*(state: PState): bool = 
+proc tablibopen*(state: PState): bool =
   open_table(state) != 0'i32
 
-proc iolibopen*(state: PState): bool = 
+proc iolibopen*(state: PState): bool =
   open_io(state) != 0'i32
 
-proc strlibopen*(state: PState): bool = 
+proc strlibopen*(state: PState): bool =
   open_string(state) != 0'i32
 
-proc mathlibopen*(state: PState): bool = 
+proc mathlibopen*(state: PState): bool =
   open_math(state) != 0'i32
 
-proc dblibopen*(state: PState): bool = 
+proc dblibopen*(state: PState): bool =
   open_debug(state) != 0'i32
-
-
 
 ## -- lauxlib
 #*****************************************************************************
@@ -453,21 +475,15 @@ proc dblibopen*(state: PState): bool =
 #**   In french or in english
 #
 
-proc pushstring*(state: PState, s: string)
-  # compatibilty macros
-proc getn*(state: PState, n: cint): cint
-  # calls lua_objlen
-proc setn*(state: PState, t, n: cint)
-  # does nothing!
-type 
-  Treg*{.final.} = object 
+type
+  Treg*{.final.} = object
     name*: cstring
     `func`*: CFunction
 
   Preg* = ptr Treg
 
 
-{.push callConv: cdecl, dynlib: lua.LIB_NAME.}
+{.push callConv: cdecl, dynlib: lua.LibName.}
 {.push importc: "luaL_$1".}
 
 proc openlib*(state: PState, libname: cstring, lr: Preg, nup: cint)
@@ -520,7 +536,7 @@ proc checklong*(state: PState, n: cint): clong
 proc optint*(state: PState, n: cint, d: float64): cint
 proc optlong*(state: PState, n: cint, d: float64): clong
 proc dofile*(state: PState, filename: cstring): cint
-proc dostring*(state: PState, str: cstring): cint
+proc doString*(state: PState, str: cstring): cint
 proc getmetatable*(state: PState, tname: cstring)
   # not translated:
   # #define luaL_opt(L,f,n,d)  (lua_isnoneornil(L,(n)) ? (d) : f(L,(n)))
@@ -529,26 +545,14 @@ proc getmetatable*(state: PState, tname: cstring)
   #** Generic Buffer manipulation
   #** =======================================================
   #
-const                         # note: this is just arbitrary, as it related to the BUFSIZ defined in stdio.h ...
-  BUFFERSIZE* = 4096
-
-type 
-  Buffer*{.final.} = object 
-    p*: cstring               # current position in buffer 
-    lvl*: cint                 # number of strings in the stack (level) 
-    L*: PState
-    buffer*: array[0..BUFFERSIZE - 1, char] # warning: see note above about LUAL_BUFFERSIZE
-  
-  PBuffer* = ptr Buffer
-
 proc addchar*(B: PBuffer, c: char)
-  # warning: see note above about LUAL_BUFFERSIZE
-  # compatibility only (alias for luaL_addchar) 
+  # warning: see note above about BufferSize
+  # compatibility only (alias for luaL_addchar)
 proc putchar*(B: PBuffer, c: char)
-  # warning: see note above about LUAL_BUFFERSIZE
+  # warning: see note above about BufferSize
 proc addsize*(B: PBuffer, n: cint)
 
-{.push callConv: cdecl, dynlib: lua.LIB_NAME, importc: "luaL_$1".}
+{.push callConv: cdecl, dynlib: lua.LibName, importc: "luaL_$1".}
 proc buffinit*(state: PState, B: PBuffer)
 proc prepbuffer*(B: PBuffer): cstring
 proc addlstring*(B: PBuffer, s: cstring, L: cint)
@@ -557,13 +561,9 @@ proc addvalue*(B: PBuffer)
 proc pushresult*(B: PBuffer)
 proc gsub*(state: PState, s, p, r: cstring): cstring
 proc findtable*(state: PState, idx: cint, fname: cstring, szhint: cint): cstring
-  # compatibility with ref system 
-  # pre-defined references 
+  # compatibility with ref system
+  # pre-defined references
 {.pop.}
-
-const 
-  NOREF* = - 2
-  REFNIL* = - 1
 
 proc unref*(state: PState, theref: cint)
 proc getref*(state: PState, theref: cint)
@@ -572,68 +572,66 @@ proc getref*(state: PState, theref: cint)
   #
 # implementation
 
-proc pushstring(state: PState, s: string) = 
+proc pushstring(state: PState, s: string) =
   pushlstring(state, cstring(s), s.len.cint)
 
-proc getn(state: PState, n: cint): cint = 
+proc getN*(state: PState, n: cint): cint =
   result = objlen(state, n)
 
-proc setn(state: PState, t, n: cint) = 
+proc setn(state: PState, t, n: cint) {.deprecated: "does nothing".} =
   # does nothing as this operation is deprecated
   discard
 
-proc open(): PState = 
+proc open(): PState =
   result = newstate()
 
-proc dofile(state: PState, filename: cstring): cint = 
+proc dofile(state: PState, filename: cstring): cint =
   result = loadfile(state, filename)
-  if result == 0: result = pcall(state, 0, MULTRET, 0)
-  
-proc dostring(state: PState, str: cstring): cint = 
-  result = loadstring(state, str)
-  if result == 0: result = pcall(state, 0, MULTRET, 0)
-  
-proc getmetatable(state: PState, tname: cstring) = 
-  getfield(state, REGISTRYINDEX, tname)
+  if result == 0: result = pcall(state, 0, MultRet, 0)
 
-proc argcheck(state: PState, cond: bool, numarg: cint, extramsg: cstring) = 
-  if not cond: 
+proc dostring(state: PState, str: cstring): cint =
+  result = loadstring(state, str)
+  if result == 0: result = pcall(state, 0, MultRet, 0)
+
+proc getmetatable(state: PState, tname: cstring) =
+  getfield(state, RegistryIndex, tname)
+
+proc argCheck(state: PState, cond: bool, numarg: cint, extramsg: cstring) =
+  if not cond:
     discard argerror(state, numarg, extramsg)
 
-proc checkstring(state: PState, n: cint): cstring = 
+proc checkstring(state: PState, n: cint): cstring =
   result = checklstring(state, n, nil)
 
-proc optstring(state: PState, n: cint, d: cstring): cstring = 
+proc optstring(state: PState, n: cint, d: cstring): cstring =
   result = optlstring(state, n, d, nil)
 
-proc checkint(state: PState, n: cint): cint = 
+proc checkint(state: PState, n: cint): cint =
   result = cint(checknumber(state, n))
 
-proc checklong(state: PState, n: cint): clong = 
+proc checklong(state: PState, n: cint): clong =
   result = int32(toInt(checknumber(state, n)))
 
-proc optint(state: PState, n: cint, d: float64): cint = 
+proc optint(state: PState, n: cint, d: float64): cint =
   result = optnumber(state, n, d).cint
 
-proc optlong(state: PState, n: cint, d: float64): clong = 
+proc optlong(state: PState, n: cint, d: float64): clong =
   result = int32(toInt(optnumber(state, n, d)))
 
-proc addchar(B: PBuffer, c: char) = 
-  if cast[int](addr((B.p))) < (cast[int](addr((B.buffer[0]))) + BUFFERSIZE): 
+proc addchar(B: PBuffer, c: char) =
+  if cast[int](addr((B.p))) < (cast[int](addr((B.buffer[0]))) + BufferSize):
     discard prepbuffer(B)
   B.p[1] = c
   B.p = cast[cstring](cast[int](B.p) + 1)
 
-proc putchar(B: PBuffer, c: char) = 
+proc putchar(B: PBuffer, c: char) =
   addchar(B, c)
 
-proc addsize(B: PBuffer, n: cint) = 
+proc addsize(B: PBuffer, n: cint) =
   B.p = cast[cstring](cast[int](B.p) + n)
 
-proc unref(state: PState, theref: cint) = 
-  unref(state, REGISTRYINDEX, theref)
+proc unref(state: PState, theref: cint) =
+  unref(state, RegistryIndex, theref)
 
-proc getref(state: PState, theref: cint) = 
-  rawgeti(state, REGISTRYINDEX, theref)
-
-
+proc getref(state: PState, theref: cint) =
+  rawgeti(state, RegistryIndex, theref)
