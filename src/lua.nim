@@ -174,6 +174,7 @@ proc rawequal*(state: PState, idx1, idx2: cint): cint{.ilua.}
 proc lessthan*(state: PState, idx1, idx2: cint): cint{.ilua.}
 proc tonumber*(state: PState, idx: cint): Number{.ilua.}
 proc tointeger*(state: PState, idx: cint): Integer{.ilua.}
+proc numbertointeger*(n: Number; p: ptr Integer): cint{.ilua.}
 proc toboolean*(state: PState, idx: cint): cint{.ilua.}
 proc tolstring*(state: PState, idx: cint, length: ptr cint): cstring{.ilua.}
 proc objlen*(state: PState, idx: cint): cint{.ilua.}
