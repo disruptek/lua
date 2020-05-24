@@ -243,7 +243,7 @@ const
 #** ===============================================================
 #
 
-proc pop*(state: PState, n: cint)
+proc pop*(state: PState, n = cint 1)
 proc newtable*(state: Pstate)
 proc register*(state: PState, n: cstring, f: CFunction)
 proc pushcfunction*(state: PState, f: CFunction)
@@ -332,7 +332,7 @@ proc getHookCount*(state: PState): cint{.ilua.}
 proc upValueIndex(i: cint): cint =
   result = GlobalsIndex - i
 
-proc pop(state: PState, n: cint) =
+proc pop(state: PState, n = cint 1) =
   settop(state, - n - 1)
 
 proc newtable(state: PState) =
