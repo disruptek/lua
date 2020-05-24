@@ -243,7 +243,6 @@ const
 #** ===============================================================
 #
 
-proc pop*(state: PState, n: cint = cint 1)
 proc newtable*(state: Pstate)
 proc register*(state: PState, n: cstring, f: CFunction)
 proc pushcfunction*(state: PState, f: CFunction)
